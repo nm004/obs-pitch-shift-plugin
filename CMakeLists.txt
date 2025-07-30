@@ -34,6 +34,33 @@ if(ENABLE_QT)
   )
 endif()
 
-target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/plugin-main.c)
+set(AUDACITY_ROOT ${PROJECT_SOURCE_DIR}/audacity/au3)
+
+add_library(pffft
+	STATIC
+	${AUDACITY_ROOT}/lib-src/pffft/pffft.c)
+
+target_include_directories(pffft
+	PUBLIC
+	${AUDACITY_ROOT}/lib-src/pffft)
+
+set_property(TARGET pffft PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+add_library(audacity-time-and-pitch
+	STATIC
+	${AUDACITY_ROOT}/libraries/lib-time-and-pitch/FormantShifter.cpp
+	${AUDACITY_ROOT}/libraries/lib-time-and-pitch/StaffPad/FourierTransform_pffft.cpp
+	${AUDACITY_ROOT}/libraries/lib-time-and-pitch/StaffPad/TimeAndPitch.cpp)
+
+target_include_directories(audacity-time-and-pitch
+	PUBLIC
+	${AUDACITY_ROOT}/libraries/lib-time-and-pitch
+	${AUDACITY_ROOT}/libraries/lib-utility)
+
+target_link_libraries(audacity-time-and-pitch PRIVATE pffft)
+set_property(TARGET audacity-time-and-pitch PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/plugin-main.cc)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE audacity-time-and-pitch)
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})

@@ -32,12 +32,12 @@ set(
   -Wno-unused-function
   -Wno-unused-label
   -Wparentheses
-  -Wuninitialized
+#  -Wuninitialized
   -Wunreachable-code
-  -Wunused-parameter
+#  -Wunused-parameter
   -Wunused-value
-  -Wunused-variable
-  -Wvla
+#  -Wunused-variable
+#  -Wvla
 )
 
 add_compile_options(
