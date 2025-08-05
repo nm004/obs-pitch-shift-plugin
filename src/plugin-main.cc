@@ -1,3 +1,4 @@
+#include <media-io/audio-resampler.h>
 #include "obs-module.h"
 #include "plugin-support.h"
 #include "FormantShifterLoggerInterface.h"
@@ -11,21 +12,19 @@ using namespace staffpad;
 
 namespace {
 
+namespace pitchshift {
+
 const uint32_t FFT_SIZE = 4096;
 
 class FormantShifterLoggerMock : public FormantShifterLoggerInterface {
 public:
 	void NewSamplesComing(int sampleCount) override {}
-
-public:
 	void Log(int value, const char* name) const override {}
 	void Log(const float* samples, size_t size, const char* name) const override {}
 	void Log(const std::complex<float>* samples, size_t size, const char* name,
 		const std::function<float(const std::complex<float>&)>& transform)
 		const override {}
 	void ProcessFinished(std::complex<float>* spectrum, size_t fftSize) override {}
-private:
-   /* No private members. */
 };
 
 struct Data {
@@ -43,16 +42,18 @@ void update(void *data, obs_data_t *settings);
 
 void *create(obs_data_t *settings, obs_source_t *source)
 {
+	auto *audio = obs_get_audio();
+
 	FormantShifterLoggerMock formantShifterLoggerMock;
 	Data *data = new (bmalloc(sizeof (Data))) Data {
-		FormantShifter (48000, 0.002, formantShifterLoggerMock),
+		FormantShifter (audio_output_get_sample_rate(audio), 0.002, formantShifterLoggerMock),
 	};
 
 	auto cb = [data](double factor, std::complex<float>* spectrum, const float* magnitude)  {
 		//data->mFormantShifter.Process(magnitude, spectrum, factor);
 	};
 	data->mPitchShifter.emplace(FFT_SIZE, true, std::move(cb));
-	data->mPitchShifter->setup(2, MAX_AUDIO_CHANNELS * 2048);
+	data->mPitchShifter->setup(2, MAX_AV_PLANES * 2048);
 
 	update(data, settings);
 	return data;
@@ -81,7 +82,7 @@ obs_audio_data *filter_audio(void *data_, obs_audio_data *audio)
 	return audio;
 }
 
-struct obs_source_info pitch_shift = {
+struct obs_source_info filter = {
 	.id = "PITCH_SHIFT",
 	.type = OBS_SOURCE_TYPE_FILTER,
 	.output_flags = OBS_SOURCE_AUDIO,
@@ -92,14 +93,15 @@ struct obs_source_info pitch_shift = {
 	.filter_audio = filter_audio,
 };
 
-} // namespace
+} // namespace pitchshift
 
+} // namespace
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 bool obs_module_load(void)
 {
-	obs_register_source(&pitch_shift);
+	obs_register_source(&pitchshift::filter);
 	obs_log(LOG_INFO, "plugin loaded successfully (version %s)",
 		PLUGIN_VERSION);
 	return true;
