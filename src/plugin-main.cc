@@ -4,6 +4,7 @@
 #include "FormantShifterLoggerInterface.h"
 #include "FormantShifter.h"
 #include "StaffPad/TimeAndPitch.h"
+#include <cmath>
 #include <utility>
 #include <optional>
 
@@ -15,6 +16,7 @@ namespace {
 namespace pitchshift {
 
 const uint32_t FFT_SIZE = 4096;
+const char *S_PITCH_RATIO_SEMITONE = "Pitch Ratio Semitone";
 
 class FormantShifterLoggerMock : public FormantShifterLoggerInterface {
 public:
@@ -31,6 +33,8 @@ struct Data {
 	FormantShifter mFormantShifter;
 	optional<TimeAndPitch> mPitchShifter;
 	//size_t channels;
+	float pitch_ratio;
+	bool should_process;
 };
 
 const char *get_name(void *type_data)
@@ -69,17 +73,34 @@ void destroy(void *data_)
 void update(void *data_, obs_data_t *settings)
 {
 	auto data{static_cast<Data *>(data_)};
-	//for (const auto &p: data->ui.get_prop_info()) {
-		//*p.zone = static_cast<FAUSTFLOAT>(obs_data_get_double(settings, p.name));
-	//}
+	float semitone = obs_data_get_double(settings, S_PITCH_RATIO_SEMITONE);
+	float pitch_ratio = exp2(semitone / 12);
+	data->pitch_ratio = pitch_ratio;
+	data->should_process = pow(pitch_ratio - 1, 2) > 0.001;
 }
 
 obs_audio_data *filter_audio(void *data_, obs_audio_data *audio)
 {
 	auto data{static_cast<Data *>(data_)};
 	auto adata{reinterpret_cast<float **>(audio->data)};
-	data->mPitchShifter->processPitchShift(adata, audio->frames, 1.05);
+	if (data->should_process)
+		data->mPitchShifter->processPitchShift(adata, audio->frames, data->pitch_ratio);
 	return audio;
+}
+
+void get_defaults2(void * /* type_data */, obs_data_t *settings)
+{
+	obs_data_set_default_double(settings, S_PITCH_RATIO_SEMITONE, 0);
+}
+
+obs_properties_t *get_properties2(void * /* data */, void * /* type_data */)
+{
+ 	auto ppts{obs_properties_create()};
+ 	obs_property_t *prop;
+ 	// Conversion will not work well if ratio is below -10.
+	prop = obs_properties_add_float_slider(ppts, S_PITCH_RATIO_SEMITONE, "Pitch Semitone", -9, 12, 0.1);
+	obs_property_float_set_suffix(prop, " semitone");
+	return ppts;
 }
 
 struct obs_source_info filter = {
@@ -91,6 +112,8 @@ struct obs_source_info filter = {
 	.destroy = destroy,
 	.update = update,
 	.filter_audio = filter_audio,
+	.get_defaults2 = get_defaults2,
+	.get_properties2 = get_properties2,
 };
 
 } // namespace pitchshift
