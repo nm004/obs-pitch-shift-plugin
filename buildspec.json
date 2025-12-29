@@ -36,10 +36,10 @@
             "bundleId": "com.example.plugintemplate-for-obs"
         }
     },
-    "name": "plugintemplate-for-obs",
-    "displayName": "Plugin Template for OBS",
-    "version": "1.0.0",
-    "author": "Your Name Here",
+    "name": "audacity-pitchshifter",
+    "displayName": "Audacity Pitch Shifter",
+    "version": "0.0.1",
+    "author": "Nozomi Miyamori",
     "website": "https://example.com",
     "email": "me@example.com"
 }
