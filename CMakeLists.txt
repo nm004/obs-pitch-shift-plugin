@@ -48,14 +48,14 @@ set_property(TARGET pffft PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 add_library(audacity-time-and-pitch
 	STATIC
-	${AUDACITY_ROOT}/libraries/lib-time-and-pitch/FormantShifter.cpp
-	${AUDACITY_ROOT}/libraries/lib-time-and-pitch/StaffPad/FourierTransform_pffft.cpp
-	${AUDACITY_ROOT}/libraries/lib-time-and-pitch/StaffPad/TimeAndPitch.cpp)
+	${AUDACITY_ROOT}/libraries/au3-time-and-pitch/FormantShifter.cpp
+	${AUDACITY_ROOT}/libraries/au3-time-and-pitch/StaffPad/FourierTransform_pffft.cpp
+	${AUDACITY_ROOT}/libraries/au3-time-and-pitch/StaffPad/TimeAndPitch.cpp)
 
 target_include_directories(audacity-time-and-pitch
 	PUBLIC
-	${AUDACITY_ROOT}/libraries/lib-time-and-pitch
-	${AUDACITY_ROOT}/libraries/lib-utility)
+	${AUDACITY_ROOT}/libraries/au3-time-and-pitch
+	${AUDACITY_ROOT}/libraries)
 
 target_link_libraries(audacity-time-and-pitch PRIVATE pffft)
 set_property(TARGET audacity-time-and-pitch PROPERTY POSITION_INDEPENDENT_CODE ON)
