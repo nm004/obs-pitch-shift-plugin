@@ -27,7 +27,6 @@ if(CMAKE_CXX_STANDARD GREATER_EQUAL 20)
 endif()
 
 add_compile_options(
-  /W3
   /utf-8
   /Brepro
   /permissive-
