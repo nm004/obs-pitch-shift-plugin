@@ -18,6 +18,7 @@ namespace pitchshift {
 const int CHANNELS = 2;
 const uint32_t FFT_SIZE = 4096;
 const char *S_PITCH_RATIO_SEMITONE = "Pitch Ratio Semitone";
+const char *S_FORMANT_PRESERVATION = "Formant Preservation";
 
 class FormantShifterLoggerMock : public FormantShifterLoggerInterface {
 public:
@@ -31,10 +32,19 @@ public:
 };
 
 struct Data {
+	FormantShifterLoggerMock mLogger;
 	FormantShifter mFormantShifter;
 	optional<TimeAndPitch> mPitchShifter;
 	//size_t channels;
 	float pitch_ratio;
+	bool preserve_formants;
+
+	Data(int sampleRate)
+		: mLogger()
+		, mFormantShifter(sampleRate, 0.002, mLogger)
+		, pitch_ratio(1.0f)
+		, preserve_formants(false)
+	{}
 };
 
 const char *get_name(void *type_data)
@@ -47,14 +57,12 @@ void update(void *data, obs_data_t *settings);
 void *create(obs_data_t *settings, obs_source_t *source)
 {
 	auto *audio = obs_get_audio();
+	int sampleRate = audio_output_get_sample_rate(audio);
 
-	FormantShifterLoggerMock formantShifterLoggerMock;
-	Data *data = new (bmalloc(sizeof (Data))) Data {
-		FormantShifter (audio_output_get_sample_rate(audio), 0.002, formantShifterLoggerMock),
-	};
+	Data *data = new (bmalloc(sizeof (Data))) Data(sampleRate);
 
 	auto cb = [data](double factor, std::complex<float>* spectrum, const float* magnitude)  {
-		//data->mFormantShifter.Process(magnitude, spectrum, factor);
+		data->mFormantShifter.Process(magnitude, spectrum, factor);
 	};
 	data->mPitchShifter.emplace(FFT_SIZE, true, std::move(cb));
 	data->mPitchShifter->setup(CHANNELS, MAX_AV_PLANES * 2048);
@@ -76,6 +84,16 @@ void update(void *data_, obs_data_t *settings)
 	float semitone = obs_data_get_double(settings, S_PITCH_RATIO_SEMITONE);
 	float pitch_ratio = exp2(semitone / 12);
 	data->pitch_ratio = pitch_ratio;
+
+	bool preserve = obs_data_get_bool(settings, S_FORMANT_PRESERVATION);
+	if (data->preserve_formants != preserve) {
+		data->preserve_formants = preserve;
+		if (preserve) {
+			data->mFormantShifter.Reset(FFT_SIZE);
+		} else {
+			data->mFormantShifter.Reset();
+		}
+	}
 }
 
 void activate(void *data_)
@@ -83,6 +101,12 @@ void activate(void *data_)
 	auto data{static_cast<Data *>(data_)};
 
 	data->mPitchShifter->reset();
+	if (data->preserve_formants) {
+		data->mFormantShifter.Reset(FFT_SIZE);
+	} else {
+		data->mFormantShifter.Reset();
+	}
+	data->mPitchShifter->setTimeStretchAndPitchFactor(1.0, data->pitch_ratio);
 	int latency = data->mPitchShifter->getLatencySamples();
 	vector silenceBuffer(latency, 0.0f);
 	data->mPitchShifter->feedAudio(vector(CHANNELS, silenceBuffer.data()).data(), latency);
@@ -98,7 +122,8 @@ obs_audio_data *filter_audio(void *data_, obs_audio_data *audio)
 
 void get_defaults2(void * /* type_data */, obs_data_t *settings)
 {
-	obs_data_set_default_double(settings, S_PITCH_RATIO_SEMITONE, 0);
+    obs_data_set_default_double(settings, S_PITCH_RATIO_SEMITONE, 0);
+	obs_data_set_default_bool(settings, S_FORMANT_PRESERVATION, false);
 }
 
 obs_properties_t *get_properties2(void * /* data */, void * /* type_data */)
@@ -106,8 +131,9 @@ obs_properties_t *get_properties2(void * /* data */, void * /* type_data */)
  	auto ppts{obs_properties_create()};
  	obs_property_t *prop;
  	// Conversion will not work well if ratio is below -10.
-	prop = obs_properties_add_float_slider(ppts, S_PITCH_RATIO_SEMITONE, "Pitch Semitone", -9, 12, 0.1);
+	prop = obs_properties_add_float_slider(ppts, S_PITCH_RATIO_SEMITONE, "Pitch Semitone", -12, 12, 0.1);
 	obs_property_float_set_suffix(prop, " semitone");
+	prop = obs_properties_add_bool(ppts, S_FORMANT_PRESERVATION, "Preserve Formant");
 	return ppts;
 }
 
